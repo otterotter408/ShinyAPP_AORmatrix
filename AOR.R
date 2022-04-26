@@ -36,8 +36,8 @@ firstname
 ,reportingnamelevel7
 ,reportinglevel7
 ,cOUNTRYNAME
-from "HCM"."ANALYTICS"."VW_HCM_MONTHLYKPI"
-where snapshotmonth=(select max(snapshotmonth) from "VW_HCM_MONTHLYKPI")'
+from "VW_kpi"
+where snapshotmonth=(select max(snapshotmonth) from "VW_kpi")'
 
 myconn_wr <- DBI::dbConnect(odbc::odbc(),
                             Driver       = "SnowflakeDSIIDriver",
@@ -53,7 +53,7 @@ myconn <- DBI::dbConnect(odbc::odbc(),
                          Driver       = "SnowflakeDSIIDriver",
                          Server       = Sys.getenv("server"),
                          UID          = Sys.getenv("uid"),
-                         PWD          = #Sys.getenv("rd"),    #Sys.getenv("rd"), # find from Renviron variable
+                         PWD          = Sys.getenv("rd"),    #Sys.getenv("rd"), # find from Renviron variable
                          Database     = Sys.getenv("db"),
                          Warehouse    = Sys.getenv("wh"))
                          Schema       = Sys.getenv("schema"))
@@ -101,8 +101,8 @@ countrylist<-countrylist[order(countrylist)]
 hrbplist<-hrbplist[order(hrbplist)]
 
 readsecsql="select * from hrbpmatrix_secaor "
-writesec <- Id(database', schema, table='HRBPMATRIX_SECAOR') 
-writedel <- Id(database, schema', table='HRBPMATRIX_DEL')
+writesec <- Id(database, schema, table='HRBPMATRIX_SECAOR') 
+writedel <- Id(database, schema, table='HRBPMATRIX_DEL')
 
 this_table <- DBI::dbGetQuery(myconn,readsecsql)
 #df for checking duplicates
@@ -128,11 +128,8 @@ ui <- fluidPage(
                                    
                             ),
                             column(12, align="right", htmlOutput("savetext"))
-                            
-                            
-                          ), 
-                      
-                          
+                        
+                          ),                          
                           h4(strong("Need to add AOR?")),
                           # textOutput("failsave"),
                           
@@ -261,7 +258,7 @@ server <- function(input, output, session) {
                 value=paste(recordid,hrbp,leader,country,status,updateby,updatedate,startdate,enddate, sep=",")
                 value2=str_c("(",value,")")
                 
-                sqli=str_c("INSERT INTO hcm.lab.hrbpmatrix_secaor VALUES ",value2)
+                sqli=str_c("INSERT INTO hrbpmatrix_secaor VALUES ",value2)
                 print(sqli)
                 dbGetQuery(myconn_wr, sqli)
                 
@@ -347,7 +344,7 @@ server <- function(input, output, session) {
         
               value2=str_c("(",value,")")
               
-              sqli=str_c("INSERT INTO hcm.lab.hrbpmatrix_secaor VALUES ",value2)
+              sqli=str_c("INSERT INTO hrbpmatrix_secaor VALUES ",value2)
               print(sqli)
               dbGetQuery(myconn_wr, sqli)
               
@@ -368,10 +365,10 @@ server <- function(input, output, session) {
               logname=gsub(" ", "",paste("'",logname,"'"))
               logdate=oldentry[which(oldentry$RECORD_ID==i),7]   #log date
               logdate=gsub(" ", "",paste("'",logdate,"'"))
-               ws1=paste("UPDATE hcm.lab.hrbpmatrix_secaor SET STATUS=",status," WHERE RECORD_ID=",ri)
-              ws2=paste("UPDATE hcm.lab.hrbpmatrix_secaor SET ENDDATE=",enddate," WHERE RECORD_ID=",ri)
-              ws3=paste("UPDATE hcm.lab.hrbpmatrix_secaor SET UPDATEBY=",logname," WHERE RECORD_ID=",ri)
-              ws4=paste("UPDATE hcm.lab.hrbpmatrix_secaor SET UPDATEDATE=",logdate," WHERE RECORD_ID=",ri)
+               ws1=paste("UPDATE hrbpmatrix_secaor SET STATUS=",status," WHERE RECORD_ID=",ri)
+              ws2=paste("UPDATE hrbpmatrix_secaor SET ENDDATE=",enddate," WHERE RECORD_ID=",ri)
+              ws3=paste("UPDATE hrbpmatrix_secaor SET UPDATEBY=",logname," WHERE RECORD_ID=",ri)
+              ws4=paste("UPDATE hrbpmatrix_secaor SET UPDATEDATE=",logdate," WHERE RECORD_ID=",ri)
               sql1=gsub("= ","=", ws1)
               sql2=gsub("= ","=", ws2)
               sql3=gsub("= ","=", ws3)
@@ -399,12 +396,7 @@ server <- function(input, output, session) {
       #################################   
     } #end save action
   ) #EDW sec
-  
-  observeEvent(input$save4,{write.csv(that_table(),'C:\\Users\\YGong\\Documents\\R codes\\matrix_hrbp.csv', row.names = FALSE)}) #local drive
-  
-  
-  
-  
+   
   # add button for sec AOR
   observeEvent(input$add_btn, {
     #verify if it's published version. only published version can track user session. is.null for session means it's local version
@@ -570,7 +562,7 @@ server <- function(input, output, session) {
       dupleader1<-df[anyDuplicated(leadercountry),2]
       showNotification("At least one duplication is found. One Leader is ",dupleader1, type='error',duration=NULL)
       
-    }else if(session$user!='YGong@corp.intusurg.com'){
+    }else if(session$user!=editor){
       showNotification("No duplication has been detected",  type='message',duration=5)
     }
   })
@@ -580,7 +572,7 @@ server <- function(input, output, session) {
  
   observeEvent(input$delete_confirmed, {
  t = this_table()
-    actsql="select * from HCM.LAB.hrbpmatrix_secaor"
+    actsql="select * from hrbpmatrix_secaor"
     actdata <- DBI::dbGetQuery(myconn,actsql) 
     selectedid=t$RECORD_ID[input$shiny_table_rows_selected]
     del_id=selectedid %in% actdata$RECORD_ID   # search for ID that pre-exist in table and delete them.
@@ -589,7 +581,7 @@ server <- function(input, output, session) {
       id=selectedid[ind]
       id2=paste("'",id,"'",collapse=", ",sep="")
       
-      delsql=paste( "DELETE FROM HCM.LAB.hrbpmatrix_secaor WHERE RECORD_ID in (",id2, ")")
+      delsql=paste( "DELETE FROM hrbpmatrix_secaor WHERE RECORD_ID in (",id2, ")")
       print(delsql)
       dbGetQuery(myconn_wr, delsql)   #delete from hrbpmatrix table
     }  #end of if statement, if find at least 1 ID from table then delete it.
@@ -621,7 +613,7 @@ server <- function(input, output, session) {
           
           value2=str_c("(",value,")")
           
-          sqli=str_c("INSERT INTO hcm.lab.hrbpmatrix_del VALUES ",value2)
+          sqli=str_c("INSERT INTO hrbpmatrix_del VALUES ",value2)
           print(sqli)
           dbGetQuery(myconn_wr, sqli)
           
@@ -809,8 +801,7 @@ server <- function(input, output, session) {
       
     } # end of else statement for local
     
-    
-    
+
   })
  
   observeEvent(input$delete_btn, {
@@ -823,14 +814,14 @@ server <- function(input, output, session) {
       ){
         
         t=this_table()
-        actsql="select * from HCM.LAB.hrbpmatrix_secaor where status='Active' "
+        actsql="select * from hrbpmatrix_secaor where status='Active' "
         actdata <- DBI::dbGetQuery(myconn,actsql) 
         if (!is.null(input$shiny_table_rows_selected)) {    #check if deleted rows is from db
           
           del_id=t$RECORD_ID[input$shiny_table_rows_selected] %in% actdata$RECORD_ID
           ind=which(del_id=="TRUE")
           
-          if  ( length(ind)>0 )    # if highlight ID is active in HCM, pop msg to warn.
+          if  ( length(ind)>0 )    # if highlight ID is active in , pop msg to warn.
           {msg="The AOR you selected is active in HCM. Do you want to try ending it instead?"   }else { msg="You are about to remove the record."  }
           
           showModal(modalDialog(
@@ -845,7 +836,7 @@ server <- function(input, output, session) {
     } else {    # statement for local app to run without session data.
       
       t=this_table()
-      actsql="select * from HCM.LAB.hrbpmatrix_secaor where status='Active' "
+      actsql="select * from hrbpmatrix_secaor where status='Active' "
       actdata <- DBI::dbGetQuery(myconn,actsql) 
       if (!is.null(input$shiny_table_rows_selected)) {    #check if deleted rows is from db
         
